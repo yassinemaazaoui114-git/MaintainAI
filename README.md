@@ -1,60 +1,99 @@
-# Smart Predictive Maintenance — Industry-styled hybrid app
+# Smart Predictive Maintenance System
+
+An AI-powered system for tracking factory machines and predicting which ones need
+maintenance before they fail. It logs machine, maintenance, and failure data, computes
+a **Risk Score (0–100)** for every machine using a trained machine-learning model, and
+presents everything on a dashboard so a maintenance team can prioritize inspections
+instead of waiting for breakdowns.
+
+Built as a graduation project. Tech stack: **Python · Pandas · scikit-learn · Streamlit · SQLite**.
+
+---
+
+## Features
+
+The system is organized into five parts:
+
+| Module | What it does |
+| --- | --- |
+| **Dashboard** | Fleet overview: machine counts by status, critical-machine alerts, a Risk Score chart, a failures-over-time chart, and a sortable health table. |
+| **Machines** | View all machines and add new ones (ID, type, location, install date, operating hours). |
+| **Maintenance** | View and filter the maintenance log; record new maintenance events. |
+| **Failures** | View and filter the failure log; record new failures with downtime and repair time. |
+| **AI Risk Score** | A trained Random Forest model scores each machine 0–100 from its operating data and buckets it into Normal / Warning / Critical. |
+
+---
+
+## Quick start
 
 ```
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## What this is
+This opens the app in your browser (usually http://localhost:8501). Use the sidebar to
+move between the Dashboard, Machines, Maintenance, and Failure Log.
 
-The same working application (Machines, Maintenance, Failures, Dashboard, AI Risk Score),
-redesigned visually via Claude Design, then wired to the real data and trained model.
+**Browser note:** use **Microsoft Edge or Chrome**. In the Brave browser, text fields
+don't always repaint visually as you type (the data still saves correctly, but you can't
+see it while typing) — a Brave rendering quirk, not a bug in the app.
 
-## Files
+---
+
+## How the Risk Score works
+
+Each machine is scored from eight features: operating hours, machine age, days since last
+maintenance, failure count, total downtime, maintenance frequency, and recent temperature
+and vibration readings. A `RandomForestRegressor` (scikit-learn) turns these into a single
+0–100 score, which is then bucketed:
+
+- **Normal** — below the Warning threshold (default 40)
+- **Warning** — between the two thresholds (default 40–70)
+- **Critical** — at or above the Critical threshold (default 70)
+
+Both thresholds are adjustable live from the sidebar sliders.
+
+> **Important — for honest reporting.** The model is trained on a **synthetic dataset**
+> with a **designed target formula**, because real labelled failure data isn't available
+> for this project. The strong evaluation results (MAE ≈ 3.5, R² ≈ 0.96 on held-out data)
+> demonstrate that the **pipeline and methodology are sound** — they do **not** prove
+> real-world predictive accuracy. A production system would need a large set of genuine
+> historical failures to validate that. See `risk_score_model.ipynb` for the full
+> methodology, feature engineering, and evaluation.
+
+---
+
+## Project structure
 
 | File | Role |
 | --- | --- |
-| `app.py` | Screens, sidebar nav, native Streamlit widgets (forms/filters/sliders) |
-| `ui.py` | HTML renderers — every visual surface of the design (unmodified from Claude Design) |
-| `theme_css.py` | Restyles Streamlit's own chrome (sidebar, inputs, buttons) |
-| `data.py` | **Real** loaders (factory_maintenance.db) + real model (risk_model.pkl) |
-| `db_utils.py` | Shared DB connection/query helpers (same tested layer used elsewhere) |
-| `factory_maintenance.db` | The real SQLite database |
-| `risk_model.pkl` | The trained Random Forest risk model |
+| `app.py` | Main application — screens, sidebar navigation, all input forms and filters. |
+| `ui.py` | Renders the dashboard's visual surfaces (metric cards, charts, tables, alert banner). |
+| `theme_css.py` | Applies the industrial visual theme to the interface. |
+| `data.py` | Loads data from the database and runs the trained model to score machines. |
+| `db_utils.py` | Shared database connection and query helpers. |
+| `factory_maintenance.db` | SQLite database (machines, maintenance log, failure log, sensor readings). |
+| `risk_model.pkl` | The trained Random Forest model. |
+| `requirements.txt` | Python dependencies (pinned versions). |
 
-## What changed from Claude Design's original hand-off
+The related notebook `risk_score_model.ipynb` (kept alongside this project) documents how
+the model was built, trained, and evaluated.
 
-- `data.py` was rewritten from scratch: loads real machines/maintenance/failures from
-  `factory_maintenance.db` instead of sample data, and `score_risk()` calls the actual
-  trained model instead of a placeholder formula.
-- **Fixed a persistence bug**: the original forms only wrote to `st.session_state`,
-  so logged records vanished on refresh. Forms now write directly to the database.
-- Fixed a fake model label ("RUL-GBM v4.2" → "Random Forest Risk Regressor") and
-  placeholder branding ("Northfield Works" → "Smart Predictive Maintenance").
-- Migrated `st.components.v1.html` → `st.iframe`, since the former is deprecated and
-  the stated removal date has already passed — every visual element in this design
-  depends on this call, so this matters.
-- Threshold sliders now default to 40/70 (Warning/Critical), matching the project's
-  confirmed working assumption, not Claude Design's placeholder 45/75.
-- `failures` / `downtime` per machine are computed live from the Failure_Log (via the
-  `Machine_Risk_Features` view), never stored redundantly on the machine itself.
-- Retired the old `pages/`-folder multipage structure — this app is a single file
-  with its own sidebar radio nav, so keeping both would show two conflicting
-  navigation systems.
+---
 
-## Known minor inconsistency (not a bug)
+## How it's built
 
-The Failure Log's "Add" form offers a simplified type list (Mechanical, Electrical,
-Thermal, Hydraulic, Control) — different from the older, longer list already in the
-existing 59 failure records. Neither list is used as an AI feature, so this is purely
-cosmetic — old and new records will just show different phrasing for failure type.
+Display surfaces (metric cards, charts, tables) are rendered as embedded HTML for a
+polished, consistent look. All inputs — the forms, filters, and threshold sliders — are
+native Streamlit widgets, so everything the user enters is processed in Python and saved
+to the database. Records added through the forms persist in `factory_maintenance.db`.
 
-## How the hybrid works
+---
 
-Read-only display surfaces (metric row, alarm banner, risk bars, month chart, tables)
-are `st.iframe(...)` embeds — each is a sandboxed iframe, so it can't call back into
-Python. All *inputs* (forms, filters, threshold sliders) are native Streamlit widgets,
-so they round-trip through Python and write to the database normally.
+## Notes
 
-Every screen and form submission was tested with Streamlit's `AppTest` harness before
-delivery, including verifying the actual database writes — not just that pages load.
+- **Data is synthetic.** Machine records, sensor readings, and history are generated for
+  demonstration; the database contains no real or personal information.
+- **Deployment:** designed to run locally. No cloud hosting or external services required.
+- **Scale:** ships with 30 machines and ~2 years of history — enough to demonstrate the
+  system end to end.
