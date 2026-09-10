@@ -128,6 +128,29 @@ def metric_row(total: int, normal: int, warning: int, critical: int) -> str:
 
 
 # ── 2. alarm banner ──────────────────────────────────────────────────────────
+# st.iframe(height="content") leaves the frame at the browser's default 150px until
+# its own measurement arrives, and it only sends that on window.load — which waits on
+# the Google-Fonts @import in CSS_BASE. Size the frame ourselves instead; the sandbox
+# grants allow-same-origin, so window.frameElement is reachable.
+_FIT_FRAME_JS = """
+(function () {
+  var frame = window.frameElement;
+  if (!frame) return;
+  var last = 0;
+  function fit() {
+    var b = document.body;
+    if (!b) return;
+    var h = Math.ceil(Math.max(b.getBoundingClientRect().height, b.scrollHeight));
+    if (h && h !== last) { last = h; frame.style.height = h + 'px'; }
+  }
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(document.body);
+  document.addEventListener('toggle', fit, true);
+  window.addEventListener('load', fit);
+  fit();
+})();
+"""
+
+
 def alarm_banner(critical_rows: Iterable[dict]) -> str:
     rows = list(critical_rows)
     if not rows:
@@ -137,27 +160,54 @@ def alarm_banner(critical_rows: Iterable[dict]) -> str:
                        font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
                        padding:10px 12px;display:flex;align-items:center">Clear</div>
                   <div style="padding:10px 12px;font-size:13px">No machines above the critical threshold.</div>
-                </section>"""
+                </section>""",
+            script=_FIT_FRAME_JS,
         )
-    chips = "".join(
-        f"""<span class="num" style="display:inline-flex;align-items:center;gap:8px;border-left:2px solid {RED};
-             padding:1px 0 1px 8px;font-size:12px">
+    items = "".join(
+        f"""<li class="num" style="display:grid;grid-template-columns:66px minmax(0,1fr) 32px;
+             align-items:center;gap:9px;height:{ALARM_ROW_H}px;border-left:2px solid {RED};
+             padding-left:8px;font-size:12px">
               <b>{_e(r['id'])}</b>
-              <span style="font-family:'Barlow',sans-serif;color:#6b6f73">{_e(r['type'])}</span>
-              <b style="color:{RED}">{_e(r['risk'])}</b>
-            </span>"""
+              <span style="font-family:'Barlow',sans-serif;color:#6b6f73;overflow:hidden;
+                    text-overflow:ellipsis;white-space:nowrap">{_e(r['type'])}</span>
+              <b style="color:{RED};text-align:right">{_e(r['risk'])}</b>
+            </li>"""
         for r in rows
     )
+    css = f"""
+details {{ flex: 1; min-width: 0; }}
+summary {{
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 12px; padding: 9px 12px;
+}}
+summary::-webkit-details-marker {{ display: none; }}
+summary:hover {{ background: rgba(178,58,58,.06); }}
+.arrow {{ flex: none; color: {RED}; font-size: 10px; line-height: 1; }}
+.arrow::after {{ content: "▼"; }}
+details[open] .arrow::after {{ content: "▲"; }}
+.crit-list {{
+  margin: 0; padding: 0 4px 0 0; list-style: none;
+  max-height: {ALARM_ROW_H * ALARM_MAX_ROWS}px; overflow-y: auto;
+}}
+"""
     return _doc(
         f"""<section style="border:1px solid {RED};display:flex;align-items:stretch">
               <div style="flex:none;background:{RED};color:{BG};font-family:'Barlow Condensed',sans-serif;
                    font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
                    padding:10px 12px;display:flex;align-items:center">Alarm</div>
-              <div style="flex:1;min-width:0;padding:9px 12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-                <span style="font-size:13px;font-weight:500">{len(rows)} machines above critical threshold — work orders required this shift.</span>
-                {chips}
-              </div>
-            </section>"""
+              <details>
+                <summary>
+                  <span style="flex:1;min-width:0;font-size:13px;font-weight:500;overflow:hidden;
+                        text-overflow:ellipsis;white-space:nowrap">{len(rows)} machines above critical threshold — work orders required this shift.</span>
+                  <span class="arrow"></span>
+                </summary>
+                <div style="padding:0 12px 9px">
+                  <ul class="crit-list">{items}</ul>
+                </div>
+              </details>
+            </section>""",
+        extra_css=css,
+        script=_FIT_FRAME_JS,
     )
 
 
@@ -334,8 +384,9 @@ def status_strip(items: Sequence[tuple[str, str]]) -> str:
 
 # height helpers so callers don't guess iframe heights
 H_METRICS = 116
-H_ALARM = 74
 H_STRIP = 40
+ALARM_ROW_H = 22
+ALARM_MAX_ROWS = 3
 
 
 def table_height(n_rows: int, footnote: bool = False) -> int:

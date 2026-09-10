@@ -84,7 +84,7 @@ def dashboard():
     crit_rows = (M[M["status"] == "Critical"].sort_values("risk", ascending=False)
                  .rename(columns={"machine_id": "id", "machine_type": "type"})
                  [["id", "type", "risk"]].to_dict("records"))
-    st.iframe(ui.alarm_banner(crit_rows), height=ui.H_ALARM)
+    st.iframe(ui.alarm_banner(crit_rows), height="content")
 
     left, right = st.columns([1.3, 1])
     with left:
