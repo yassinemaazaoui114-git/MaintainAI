@@ -55,7 +55,7 @@ Both thresholds are adjustable live from the sidebar sliders.
 
 > **Important — for honest reporting.** The model is trained on a **synthetic dataset**
 > with a **designed target formula**, because real labelled failure data isn't available
-> for this project. The strong evaluation results (MAE ≈ 3.5, R² ≈ 0.96 on held-out data)
+> for this project. The strong evaluation results (MAE ≈ 3.4, R² ≈ 0.96 on held-out data)
 > demonstrate that the **pipeline and methodology are sound** — they do **not** prove
 > real-world predictive accuracy. A production system would need a large set of genuine
 > historical failures to validate that. See `risk_score_model.ipynb` for the full
@@ -95,5 +95,5 @@ to the database. Records added through the forms persist in `factory_maintenance
 - **Data is synthetic.** Machine records, sensor readings, and history are generated for
   demonstration; the database contains no real or personal information.
 - **Deployment:** designed to run locally. No cloud hosting or external services required.
-- **Scale:** ships with 30 machines and ~2 years of history — enough to demonstrate the
+- **Scale:** ships with 50 machines and ~2 years of history — enough to demonstrate the
   system end to end.
