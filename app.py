@@ -33,7 +33,9 @@ M: pd.DataFrame = st.session_state.machines
 MAINT: pd.DataFrame = st.session_state.maintenance
 FAIL: pd.DataFrame = st.session_state.failures
 
-# ── sidebar: nav + thresholds ────────────────────────────────────────────────
+# ── sidebar ──────────────────────────────────────────────────────────────────
+WARN, CRIT = 40, 70
+
 _SCREENS = ["Dashboard", "Machines", "Maintenance Log", "Failure Log"]
 _counts = {
     "Dashboard": len(M),
@@ -41,24 +43,19 @@ _counts = {
     "Maintenance Log": len(MAINT),
     "Failure Log": len(FAIL),
 }
-# radio labels carry the count as a right-aligned badge via a wide gap
-_labels = {s: f"{s}\u2003\u2003{_counts[s]}" for s in _SCREENS}
-_label_to_screen = {v: k for k, v in _labels.items()}
 
 with st.sidebar:
     st.markdown(
-        "<div class='sb-title'>Smart Predictive Maintenance</div>"
-        "<div class='sb-sub'>Predictive Maintenance</div>",
+        "<div class='sb-head'>"
+        "<div class='sb-title'>MaintainAI</div>"
+        "<div class='sb-sub'>Predictive Maintenance</div>"
+        "</div>"
+        "<div class='sb-seclabel'>Monitor</div>",
         unsafe_allow_html=True)
-    st.markdown("<div class='sb-seclabel'>Monitor</div>", unsafe_allow_html=True)
-    _picked = st.radio("Monitor", list(_labels.values()),
-                       label_visibility="collapsed")
-    screen = _label_to_screen[_picked]
-    st.divider()
-    warn = st.slider("Warning threshold", 20, 70, 40)
-    crit = st.slider("Critical threshold", 50, 95, 70)
-    st.divider()
-    _last = MAINT["date"].max() if len(MAINT) else "—"
+    # the bold markdown count is pushed flush right by theme_css
+    screen = st.radio("Monitor", _SCREENS, format_func=lambda s: f"{s} **{_counts[s]}**",
+                      label_visibility="collapsed")
+    _last = pd.to_datetime(MAINT["date"]).max().strftime("%d %b %Y") if len(MAINT) else "—"
     st.markdown(
         "<div class='sb-info'>"
         "<div class='row'><span class='k'>Model</span><span class='v'>Random Forest Regressor</span></div>"
@@ -70,7 +67,7 @@ with st.sidebar:
 # ── scoring ──────────────────────────────────────────────────────────────────
 M = M.copy()
 M["risk"] = D.score_risk(M)
-M["status"] = [ui.status_of(r, warn, crit)[0] for r in M["risk"]]
+M["status"] = [ui.status_of(r, WARN, CRIT)[0] for r in M["risk"]]
 
 
 # ── screens ──────────────────────────────────────────────────────────────────
@@ -88,12 +85,12 @@ def dashboard():
 
     left, right = st.columns([1.3, 1])
     with left:
-        st.iframe(ui.risk_chart(M, warn=warn, crit=crit), height=60 + 16 * len(M) + 30)
+        st.iframe(ui.risk_chart(M, warn=WARN, crit=CRIT), height=60 + 16 * len(M) + 30)
     with right:
         labels, counts_m = D.monthly_failures(FAIL)
         st.iframe(ui.month_chart(labels, counts_m), height=290)
 
-    st.iframe(ui.health_table(M, warn=warn, crit=crit),
+    st.iframe(ui.health_table(M, warn=WARN, crit=CRIT),
                     height=ui.table_height(len(M)))
 
 

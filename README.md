@@ -47,11 +47,11 @@ maintenance, failure count, total downtime, maintenance frequency, and recent te
 and vibration readings. A `RandomForestRegressor` (scikit-learn) turns these into a single
 0–100 score, which is then bucketed:
 
-- **Normal** — below the Warning threshold (default 40)
-- **Warning** — between the two thresholds (default 40–70)
-- **Critical** — at or above the Critical threshold (default 70)
+- **Normal** — below the Warning threshold (40)
+- **Warning** — between the two thresholds (40–70)
+- **Critical** — at or above the Critical threshold (70)
 
-Both thresholds are adjustable live from the sidebar sliders.
+The thresholds are fixed constants (`WARN` / `CRIT` in `app.py`).
 
 > **Important — for honest reporting.** The model is trained on a **synthetic dataset**
 > with a **designed target formula**, because real labelled failure data isn't available
@@ -84,7 +84,7 @@ the model was built, trained, and evaluated.
 ## How it's built
 
 Display surfaces (metric cards, charts, tables) are rendered as embedded HTML for a
-polished, consistent look. All inputs — the forms, filters, and threshold sliders — are
+polished, consistent look. All inputs — the forms and filters — are
 native Streamlit widgets, so everything the user enters is processed in Python and saved
 to the database. Records added through the forms persist in `factory_maintenance.db`.
 

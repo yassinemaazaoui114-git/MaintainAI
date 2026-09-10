@@ -25,62 +25,81 @@ h1, h2, h3, h4, h5 {{
 [data-testid="stSidebar"] {{ background: {ACCENT_900}; }}
 [data-testid="stSidebar"] * {{ color: {BG} !important; }}
 
-/* sidebar header block */
+/* full-bleed column: drop Streamlit's gutters (our blocks pad themselves), float the
+   collapse button over the top instead of reserving a 76px band, and stretch the
+   content to full height so the footer can be pinned to the bottom.
+   Markdown containers carry a -16px bottom margin meant to cancel a trailing <p>
+   margin; our blocks are divs, so it would drag each next element up over them. */
+[data-testid="stSidebarContent"] {{
+  padding: 0 !important; scrollbar-gutter: auto; display: flex; flex-direction: column;
+}}
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {{ margin-bottom: 0 !important; }}
+[data-testid="stSidebar"] [data-testid="stElementContainer"]:has([data-testid="stRadio"]) {{ width: 100% !important; }}
+[data-testid="stSidebarHeader"] {{
+  position: absolute; top: 0; right: 0; z-index: 2;
+  height: auto; margin: 0; padding: 12px 10px;
+}}
+[data-testid="stSidebarUserContent"] {{ padding: 0 !important; flex: 1; display: flex; flex-direction: column; }}
+[data-testid="stSidebarUserContent"] > div {{ flex: 1; display: flex; flex-direction: column; }}
+[data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] {{ gap: 0; flex: 1; }}
+[data-testid="stSidebar"] [data-testid="stElementContainer"]:has(.sb-info) {{ margin-top: auto; }}
+
+/* header block */
+.sb-head {{ padding: 26px 20px 18px; border-bottom: 1px solid rgba(255,255,255,.1); }}
 .sb-title {{
   font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
-  font-size: 19px; letter-spacing: .04em; text-transform: uppercase;
-  line-height: 1.1; margin: 2px 0 2px;
+  font-size: 21px; letter-spacing: .05em; text-transform: uppercase; line-height: 1.1;
 }}
 .sb-sub {{
   font-family: 'Barlow Condensed', sans-serif; font-weight: 500;
-  font-size: 12px; letter-spacing: .16em; text-transform: uppercase;
-  color: #8a97a5 !important; margin-bottom: 4px;
+  font-size: 12.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: #8a97a5 !important; margin-top: 7px;
 }}
 .sb-seclabel {{
   font-family: 'Barlow Condensed', sans-serif; font-weight: 600;
-  font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
-  color: #6f7d8c !important; padding: 0 0 2px; margin-top: 6px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
+  font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  color: #6f7d8c !important; padding: 16px 20px 7px;
 }}
 
-/* radio -> full-width nav rows with selected highlight */
-[data-testid="stSidebar"] [role="radiogroup"] {{ gap: 0 !important; }}
-[data-testid="stSidebar"] [role="radiogroup"] label {{
-  display: flex; align-items: center; width: 100%;
-  padding: 9px 10px; margin: 0; cursor: pointer;
-  border-left: 3px solid transparent;
-  font-family: 'Barlow Condensed', sans-serif !important; font-weight: 600 !important;
-  font-size: 14px !important; letter-spacing: .1em; text-transform: uppercase;
-  transition: background .12s;
+/* radio -> full-bleed nav rows (Streamlit 1.63 renders the radio with React Aria:
+   label[data-testid=stRadioOption] > span(hidden input) + div > div > [marker, text]) */
+[data-testid="stSidebar"] [data-testid="stRadio"],
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] {{ width: 100%; gap: 0; }}
+[data-testid="stSidebar"] [data-testid="stRadioOption"] {{
+  width: 100%; margin: 0; padding: 10px 20px 10px 17px; cursor: pointer;
+  border-left: 3px solid transparent; transition: background .12s;
 }}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover {{
-  background: rgba(255,255,255,.05);
+[data-testid="stSidebar"] [data-testid="stRadioOption"]:hover {{ background: rgba(255,255,255,.05); }}
+[data-testid="stSidebar"] [data-testid="stRadioOption"][data-selected="true"] {{
+  background: {ACCENT_700}; border-left-color: {ACCENT};
 }}
-/* hide only the small round radio marker, not the text.
-   BaseWeb renders it as a fixed-size box; target the first flex child that is
-   NOT the label-text wrapper. The text lives in a div containing a <p>, so we
-   hide the sibling div that has no <p>. */
-[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child {{
-  min-width: 0 !important; width: 0 !important; margin: 0 !important;
-  overflow: hidden !important;
-}}
-[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child > div {{
+[data-testid="stSidebar"] [data-testid="stRadioOption"] > div > div > div:not([data-testid="stMarkdownContainer"]) {{
   display: none !important;
 }}
-/* selected row highlight, keyed off BaseWeb's data-selected attribute */
-[data-testid="stSidebar"] [role="radiogroup"] label[data-selected="true"] {{
-  background: {ACCENT}; border-left-color: #cdd8e3;
+[data-testid="stSidebar"] [data-testid="stRadioOption"] > div,
+[data-testid="stSidebar"] [data-testid="stRadioOption"] > div > div,
+[data-testid="stSidebar"] [data-testid="stRadioOption"] [data-testid="stMarkdownContainer"] {{
+  flex: 1; width: 100%; min-width: 0;
 }}
+[data-testid="stSidebar"] [data-testid="stRadioOption"] p {{
+  display: flex; align-items: baseline; margin: 0;
+  font-family: 'Barlow Condensed', sans-serif !important; font-weight: 600;
+  font-size: 15px !important; letter-spacing: .09em; text-transform: uppercase; line-height: 1.25;
+}}
+[data-testid="stSidebar"] [data-testid="stRadioOption"] p strong {{
+  margin-left: auto; padding-left: 12px; font-weight: 600; font-size: 12.5px;
+  letter-spacing: .04em; font-variant-numeric: tabular-nums; color: #8a97a5 !important;
+}}
+[data-testid="stSidebar"] [data-testid="stRadioOption"][data-selected="true"] p strong {{ color: #d6dfe8 !important; }}
 
-/* sidebar footer info block */
-.sb-info {{ margin-top: 4px; }}
+/* footer info block, pinned to the bottom */
+.sb-info {{ border-top: 1px solid rgba(255,255,255,.1); padding: 14px 20px 18px; }}
 .sb-info .row {{
   display: flex; justify-content: space-between; align-items: baseline;
-  padding: 4px 0; border-top: 1px solid rgba(255,255,255,.08);
-  font-size: 11px;
+  gap: 12px; padding: 3px 0; font-size: 12.5px;
 }}
-.sb-info .row .k {{ color: #8a97a5 !important; letter-spacing: .08em; text-transform: uppercase; font-size: 10px; }}
-.sb-info .row .v {{ font-variant-numeric: tabular-nums; font-weight: 600; }}
+.sb-info .row .k {{ color: #8a97a5 !important; }}
+.sb-info .row .v {{ font-variant-numeric: tabular-nums; text-align: right; }}
 
 /* square, hairline widgets */
 input, textarea, select,
