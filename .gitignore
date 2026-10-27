@@ -1,2 +1,17 @@
+# Python
 __pycache__/
 *.pyc
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# benchmark downloads (the notebooks fetch these; only small result files are committed)
+data/
+
+# private working notes, not part of the public project
+HANDOFF.md
+factory_maintenance_system_spec.md
+
+# local Streamlit secrets (none are needed)
+.streamlit/secrets.toml

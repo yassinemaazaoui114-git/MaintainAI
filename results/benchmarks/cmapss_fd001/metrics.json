@@ -1,0 +1,60 @@
+{
+  "dataset": "NASA C-MAPSS turbofan degradation, subset FD001 \u2014 simulated",
+  "citation": "A. Saxena, K. Goebel, D. Simon, N. Eklund, 'Damage Propagation Modeling for Aircraft Engine Run-to-Failure Simulation', PHM08, 2008. Data: NASA Prognostics Data Repository, NASA Ames Research Center.",
+  "url": "https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/",
+  "task": "remaining useful life at each test engine's last observed cycle; official train/test split and RUL_FD001.txt",
+  "train_engines": 100,
+  "test_engines": 100,
+  "rul_cap": 125,
+  "window": 10,
+  "sensors": [
+    "s2",
+    "s3",
+    "s4",
+    "s7",
+    "s8",
+    "s9",
+    "s11",
+    "s12",
+    "s13",
+    "s14",
+    "s15",
+    "s17",
+    "s20",
+    "s21"
+  ],
+  "results": [
+    {
+      "model": "Baseline (mean RUL)",
+      "cv_rmse_train_engines": 41.67,
+      "test_rmse": 43.07,
+      "test_rmse_capped_truth": 41.94,
+      "nasa_score": 33629.2
+    },
+    {
+      "model": "Linear regression (raw sensors)",
+      "cv_rmse_train_engines": 21.66,
+      "test_rmse": 21.9,
+      "test_rmse_capped_truth": 20.82,
+      "nasa_score": 1314.0
+    },
+    {
+      "model": "Random Forest",
+      "cv_rmse_train_engines": 16.5,
+      "test_rmse": 19.07,
+      "test_rmse_capped_truth": 17.89,
+      "nasa_score": 684.5
+    },
+    {
+      "model": "Gradient boosting",
+      "cv_rmse_train_engines": 16.99,
+      "test_rmse": 20.55,
+      "test_rmse_capped_truth": 19.45,
+      "nasa_score": 1072.1
+    }
+  ],
+  "selected": "Random Forest",
+  "figures": [
+    "rul_predictions.png"
+  ]
+}

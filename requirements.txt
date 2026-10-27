@@ -1,4 +1,8 @@
+# App runtime (also what Streamlit Community Cloud installs).
+# scikit-learn must match the version risk_model.pkl was saved with (1.9.0).
 streamlit==1.63.0
-pandas
+pandas==3.1.0
+numpy==2.5.4
 scikit-learn==1.9.0
-joblib
+joblib==1.6.0
+shap==0.54.1

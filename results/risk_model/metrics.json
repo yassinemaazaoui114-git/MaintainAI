@@ -1,0 +1,75 @@
+{
+  "dataset": {
+    "snapshots": 2650,
+    "machines": 50,
+    "weeks": 53,
+    "first_snapshot": "2025-09-11",
+    "last_snapshot": "2026-09-10",
+    "train_machines": 40,
+    "test_machines": 10,
+    "test_rows": 530
+  },
+  "held_out_machines": {
+    "Mean baseline": {
+      "MAE": 21.89,
+      "RMSE": 27.34,
+      "R2": -0.217
+    },
+    "Linear regression": {
+      "MAE": 3.53,
+      "RMSE": 4.49,
+      "R2": 0.967
+    },
+    "Random Forest": {
+      "MAE": 4.64,
+      "RMSE": 5.85,
+      "R2": 0.944
+    }
+  },
+  "group_5fold_cv_random_forest": {
+    "MAE": {
+      "mean": 3.888,
+      "std": 0.371
+    },
+    "RMSE": {
+      "mean": 4.982,
+      "std": 0.575
+    },
+    "R2": {
+      "mean": 0.937,
+      "std": 0.016
+    }
+  },
+  "random_row_split_random_forest": {
+    "MAE": 3.47,
+    "RMSE": 4.34,
+    "R2": 0.959
+  },
+  "noise_ceiling": {
+    "MAE": 3.32,
+    "RMSE": 4.19,
+    "R2": 0.971
+  },
+  "feature_importance": {
+    "vibration": 0.3786,
+    "operating_hours": 0.3176,
+    "age_years": 0.092,
+    "temperature": 0.0917,
+    "maintenance_frequency": 0.0404,
+    "days_since_maintenance": 0.0311,
+    "total_downtime": 0.0303,
+    "failure_count": 0.0182
+  },
+  "proxy_weights": {
+    "failure_count": 0.22,
+    "days_since_maintenance": 0.16,
+    "vibration": 0.16,
+    "temperature": 0.12,
+    "total_downtime": 0.1,
+    "age_years": 0.1,
+    "operating_hours": 0.08,
+    "maintenance_frequency": 0.06
+  },
+  "proxy_noise_sd": 4.0,
+  "scikit_learn": "1.9.0"
+}

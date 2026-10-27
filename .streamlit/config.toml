@@ -1,0 +1,10 @@
+[theme]
+# the custom Industry styling (theme_css.py, ui.py) is designed for a light base
+base = "light"
+
+[client]
+# hide the developer toolbar (Deploy button, rerun menu) for visitors
+toolbarMode = "viewer"
+
+[browser]
+gatherUsageStats = false

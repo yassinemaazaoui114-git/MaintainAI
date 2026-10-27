@@ -1,8 +1,8 @@
 """HTML renderers for the Industry-styled predictive-maintenance dashboard.
 
-Every function returns an HTML string meant for
-``streamlit.components.v1.html(...)``. Each embed is its own iframe, so the
-CSS (CSS_BASE) has to be inlined into each one — that is what `_doc()` does.
+Every function returns an HTML string meant for ``st.iframe(..., height="content")``.
+Each embed is its own iframe, so the CSS (CSS_BASE) has to be inlined into each
+one, and each one sizes its own frame — that is what `_doc()` does.
 """
 
 from __future__ import annotations
@@ -77,9 +77,12 @@ tbody tr:hover {{ background: rgba(89,128,166,.09); }}
 
 
 def _doc(body: str, extra_css: str = "", script: str = "") -> str:
+    # every embed sizes its own frame (see _FIT_FRAME_JS): real row heights depend on
+    # the web fonts, so heights computed in Python clipped the taller tables
     return (
         f"<!doctype html><meta charset='utf-8'>"
         f"<style>{CSS_BASE}{extra_css}</style>{body}"
+        f"<script>{_FIT_FRAME_JS}</script>"
         + (f"<script>{script}</script>" if script else "")
     )
 
@@ -89,7 +92,8 @@ def _e(v) -> str:
 
 
 def status_of(risk: float, warn: int = 45, crit: int = 75) -> tuple[str, str]:
-    """Return (label, color) for a 0-100 risk score."""
+    """Return (label, color) for a 0-100 risk score, judged on the shown (whole) number."""
+    risk = round(risk)
     if risk >= crit:
         return "Critical", RED
     if risk >= warn:
@@ -127,7 +131,7 @@ def metric_row(total: int, normal: int, warning: int, critical: int) -> str:
     )
 
 
-# ── 2. alarm banner ──────────────────────────────────────────────────────────
+# ── frame sizing ─────────────────────────────────────────────────────────────
 # st.iframe(height="content") leaves the frame at the browser's default 150px until
 # its own measurement arrives, and it only sends that on window.load — which waits on
 # the Google-Fonts @import in CSS_BASE. Size the frame ourselves instead; the sandbox
@@ -151,6 +155,7 @@ _FIT_FRAME_JS = """
 """
 
 
+# ── 2. alarm banner ──────────────────────────────────────────────────────────
 def alarm_banner(critical_rows: Iterable[dict]) -> str:
     rows = list(critical_rows)
     if not rows:
@@ -161,8 +166,7 @@ def alarm_banner(critical_rows: Iterable[dict]) -> str:
                        padding:10px 12px;display:flex;align-items:center">Clear</div>
                   <div style="padding:10px 12px;font-size:13px">No machines above the critical threshold.</div>
                 </section>""",
-            script=_FIT_FRAME_JS,
-        )
+            )
     items = "".join(
         f"""<li class="num" style="display:grid;grid-template-columns:66px minmax(0,1fr) 32px;
              align-items:center;gap:9px;height:{ALARM_ROW_H}px;border-left:2px solid {RED};
@@ -207,7 +211,6 @@ details[open] .arrow::after {{ content: "▲"; }}
               </details>
             </section>""",
         extra_css=css,
-        script=_FIT_FRAME_JS,
     )
 
 
@@ -270,15 +273,21 @@ def month_chart(labels: Sequence[str], counts: Sequence[int]) -> str:
 # ── 5. tables ────────────────────────────────────────────────────────────────
 def health_table(df: pd.DataFrame, warn: int = 45, crit: int = 75,
                  cols: dict | None = None) -> str:
-    """Sortable machine-health register. Sorting runs client-side in the iframe."""
+    """Sortable machine-health register. Sorting runs client-side in the iframe.
+
+    The "drivers" column holds a list of plain-words risk factors per machine.
+    """
     c = {"id": "machine_id", "type": "machine_type", "hours": "operating_hours",
-         "failures": "failures", "downtime": "downtime", "risk": "risk"}
+         "failures": "failures", "downtime": "downtime", "risk": "risk", "drivers": "drivers"}
     c.update(cols or {})
 
     body = ""
     for _, r in df.iterrows():
         risk = float(r[c["risk"]])
         label, color = status_of(risk, warn, crit)
+        factors = list(r.get(c["drivers"], None) or [])
+        drivers = (" · ".join(_e(f) for f in factors) if factors
+                   else '<span style="color:#9a9ea2">no strong risk factors</span>')
         body += f"""<tr>
               <td class="num" style="font-weight:700" data-v="{_e(r[c['id']])}">{_e(r[c['id']])}</td>
               <td style="color:#575b5f" data-v="{_e(r[c['type']])}">{_e(r[c['type']])}</td>
@@ -294,14 +303,15 @@ def health_table(df: pd.DataFrame, warn: int = 45, crit: int = 75,
                 </span>
               </td>
               <td data-v="{risk:.0f}"><span class="pill" style="color:{color}"><i style="background:{color}"></i>{label}</span></td>
+              <td class="why">{drivers}</td>
             </tr>"""
 
-    heads = ["Machine", "Type", "Hours", "Failures", "Downtime (h)", "Risk %", "Status"]
+    heads = ["Machine", "Type", "Hours", "Failures 12 mo", "Downtime 12 mo (h)", "Risk %", "Status"]
     aligns = ["", "", "r", "r", "r", "r", ""]
     th = "".join(
         f'<th class="sortable {a}" data-i="{i}">{h}</th>'
         for i, (h, a) in enumerate(zip(heads, aligns))
-    )
+    ) + '<th title="Largest SHAP contributions raising this score">Main risk drivers</th>' 
 
     script = """
     (function(){
@@ -330,6 +340,7 @@ def health_table(df: pd.DataFrame, warn: int = 45, crit: int = 75,
               <div class="hd"><h4>Machine health register</h4><span class="meta">Click a header to re-sort</span></div>
               <div class="scroll"><table><thead><tr>{th}</tr></thead><tbody>{body}</tbody></table></div>
             </section>""",
+        extra_css=".why { font-size: 12px; color: #575b5f; min-width: 220px; }",
         script=script,
     )
 
@@ -371,6 +382,59 @@ def data_table(df: pd.DataFrame, title: str, headers: Sequence[str],
     )
 
 
+def explain_panel(machine_id: str, risk: float, base: float,
+                  factors: Sequence[tuple[str, float]], warn: int = 45, crit: int = 75) -> str:
+    """Why one machine scored what it did: SHAP contributions as diverging bars.
+
+    `factors` is (plain-words label, contribution in score points), any order.
+    """
+    label, color = status_of(risk, warn, crit)
+    rows = sorted(factors, key=lambda f: -abs(f[1]))
+    top = max((abs(v) for _, v in rows), default=1) or 1
+    bars = ""
+    for text, v in rows:
+        w = abs(v) / top * 50
+        bar_color = RED if v > 0 else GREEN
+        side = f"left:50%;width:{w:.1f}%" if v > 0 else f"right:50%;width:{w:.1f}%"
+        bars += f"""<div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) 52px;align-items:center;gap:10px;height:22px">
+              <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{_e(text)}</span>
+              <span style="position:relative;display:block;height:12px;background:rgba(29,31,32,.05)">
+                <i style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:{TEXT}"></i>
+                <i style="position:absolute;top:0;height:12px;{side};background:{bar_color}"></i>
+              </span>
+              <span class="num" style="font-size:12px;font-weight:700;text-align:right;color:{bar_color}">{v:+.1f}</span>
+            </div>"""
+    return _doc(
+        f"""<section class="plate">
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <div class="hd"><h4>Why {_e(machine_id)} scores {risk:.0f}</h4>
+                <span class="pill" style="color:{color}"><i style="background:{color}"></i>{label}</span></div>
+              <div style="padding:10px 14px;display:flex;flex-direction:column;gap:2px">
+                <div class="num" style="font-size:11px;color:#6b6f73;margin-bottom:6px">
+                  Fleet average {base:.1f} &nbsp;+&nbsp; contributions below &nbsp;=&nbsp; <b style="color:{TEXT}">{risk:.1f}</b>
+                  &nbsp;·&nbsp; <span style="color:{RED}">red raises risk</span>, <span style="color:{GREEN}">green lowers it</span>
+                </div>
+                {bars}
+                <div style="font-size:11px;color:#6b6f73;margin-top:8px">SHAP values (TreeExplainer) for the
+                  Random Forest. They explain what the model learned, which here is a designed proxy formula,
+                  not observed failures.</div>
+              </div>
+            </section>"""
+    )
+
+
+def notice(title: str, body_html: str) -> str:
+    """Amber call-out for caveats the reader must not miss. body_html is trusted markup."""
+    return _doc(
+        f"""<section style="border:1px solid {AMBER};display:flex;align-items:stretch">
+              <div style="flex:none;background:{AMBER};color:{BG};font-family:'Barlow Condensed',sans-serif;
+                   font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+                   padding:10px 12px;display:flex;align-items:center">Note</div>
+              <div style="padding:9px 12px;font-size:13px;line-height:1.45"><b>{_e(title)}.</b> {body_html}</div>
+            </section>"""
+    )
+
+
 def status_strip(items: Sequence[tuple[str, str]]) -> str:
     cells = "".join(
         f'<span><span style="color:#6b6f73">{_e(k)}</span> <b>{_e(v)}</b></span>'
@@ -382,12 +446,6 @@ def status_strip(items: Sequence[tuple[str, str]]) -> str:
     )
 
 
-# height helpers so callers don't guess iframe heights
-H_METRICS = 116
-H_STRIP = 40
+# alarm list geometry (rows shown before the list scrolls)
 ALARM_ROW_H = 22
 ALARM_MAX_ROWS = 3
-
-
-def table_height(n_rows: int, footnote: bool = False) -> int:
-    return 58 + 24 * n_rows + (30 if footnote else 0)
