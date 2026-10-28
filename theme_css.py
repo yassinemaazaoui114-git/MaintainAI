@@ -132,6 +132,15 @@ label, [data-testid="stWidgetLabel"] p {{
 [data-testid="stHeader"] {{ background: transparent; }}
 iframe {{ border: 0; display: block; }}
 [data-testid="stVerticalBlock"] {{ gap: .75rem; }}
+
+/* dashboard row: stretch the failures chart to the height of the explanation column
+   beside it. Streamlit stacks columns below 640px; there each frame keeps its own height. */
+@media (min-width: 640px) {{
+  .st-key-dash_row [data-testid="stHorizontalBlock"] {{ align-items: stretch; }}
+  .st-key-dash_row [data-testid="stColumn"]:first-child > [data-testid="stVerticalBlock"] {{ height: 100%; }}
+  .st-key-dash_row [data-testid="stColumn"]:first-child [data-testid="stElementContainer"] {{ flex: 1; }}
+  .st-key-dash_row [data-testid="stColumn"]:first-child iframe {{ height: 100% !important; }}
+}}
 </style>
 """
 

@@ -6,8 +6,10 @@ venv/
 .pytest_cache/
 .ipynb_checkpoints/
 
-# benchmark downloads (the notebooks fetch these; only small result files are committed)
+# raw datasets: benchmark downloads (the notebooks fetch these) and the Azure PdM CSVs
+# (license not clearly stated: only the daily-aggregate maintainai.db is committed)
 data/
+data/azure_pdm/
 
 # private working notes, not part of the public project
 HANDOFF.md

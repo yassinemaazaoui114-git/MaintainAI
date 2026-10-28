@@ -1,5 +1,5 @@
 """
-Shared database helpers for the Smart Predictive Maintenance app.
+Shared database helpers for the MaintainAI app.
 All pages import from here so there's one source of truth for the DB path
 and query logic (avoids the exact kind of drift this project has been
 careful to avoid elsewhere).
@@ -13,7 +13,7 @@ import pandas as pd
 import streamlit as st
 
 # next to app.py by default; MAINTAINAI_DB points the app at another copy (the tests do)
-DEFAULT_DB = Path(__file__).resolve().with_name("factory_maintenance.db")
+DEFAULT_DB = Path(__file__).resolve().with_name("maintainai.db")
 
 
 def db_path() -> Path:

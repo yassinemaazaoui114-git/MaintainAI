@@ -56,6 +56,15 @@ def go(page: Page, screen: str) -> None:
     settle(page)
 
 
+def scroll_to_frame(page: Page, index: int) -> None:
+    page.evaluate("""(i) => {
+        const main = document.querySelector('[data-testid=stMain]');
+        const frame = document.querySelectorAll('iframe')[i];
+        main.scrollTo(0, frame.getBoundingClientRect().top + main.scrollTop - 20);
+    }""", index)
+    page.wait_for_timeout(800)
+
+
 def shoot(page: Page, name: str, full: bool = False, max_height: int = 2400) -> None:
     if full:
         page.set_viewport_size({"width": WIDTH, "height": min(main_height(page), max_height)})
@@ -68,8 +77,8 @@ def shoot(page: Page, name: str, full: bool = False, max_height: int = 2400) -> 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     tmp = Path(tempfile.mkdtemp())
-    shutil.copy(ROOT / "factory_maintenance.db", tmp / "factory_maintenance.db")
-    env = {**os.environ, "MAINTAINAI_DB": str(tmp / "factory_maintenance.db")}
+    shutil.copy(ROOT / "maintainai.db", tmp / "maintainai.db")
+    env = {**os.environ, "MAINTAINAI_DB": str(tmp / "maintainai.db")}
     server = subprocess.Popen(
         [sys.executable, "-m", "streamlit", "run", "app.py", "--server.headless", "true",
          "--server.port", str(PORT), "--browser.gatherUsageStats", "false"],
@@ -82,14 +91,8 @@ def main() -> None:
             page.goto(URL)
             settle(page)
             shoot(page, "dashboard")
-            # health table with plain-words drivers, then the per-machine explanation panel
-            page.evaluate("""() => {
-                const main = document.querySelector('[data-testid=stMain]');
-                const frames = [...document.querySelectorAll('iframe')];
-                const table = frames[frames.length - 3];
-                main.scrollTo(0, table.getBoundingClientRect().top + main.scrollTop - 20);
-            }""")
-            page.wait_for_timeout(800)
+            # health table, then the failures-per-month | explanation row
+            scroll_to_frame(page, 2)
             shoot(page, "dashboard_health_table")
             page.evaluate("""() => {
                 const main = document.querySelector('[data-testid=stMain]');
@@ -97,10 +100,22 @@ def main() -> None:
             }""")
             page.wait_for_timeout(800)
             shoot(page, "dashboard_explanation")
-            for screen, name in (("Machines", "machines"), ("Failure Log", "failure_log"),
-                                 ("Benchmarks", "benchmarks")):
+            for screen, name in (("Machines", "machines"), ("Failure Log", "failure_log")):
                 go(page, screen)
-                shoot(page, name, full=screen == "Benchmarks", max_height=3200)
+                shoot(page, name)
+            go(page, "Model")
+            shoot(page, "model")
+            page.get_by_text("Full service: replace all four components").click()
+            settle(page)
+            page.get_by_text("Sensor readings back to fleet normal").click()
+            settle(page)
+            page.evaluate("""() => {
+                const main = document.querySelector('[data-testid=stMain]');
+                const h = [...main.querySelectorAll('h4')].find(e => /what if/i.test(e.innerText));
+                main.scrollTo(0, h.getBoundingClientRect().top + main.scrollTop - 20);
+            }""")
+            page.wait_for_timeout(800)
+            shoot(page, "model_what_if")
             browser.close()
     finally:
         server.terminate()

@@ -1,4 +1,4 @@
-"""Every test runs against a throwaway copy of factory_maintenance.db, never the real one."""
+"""Every test runs against a throwaway copy of maintainai.db, never the real one."""
 
 import hashlib
 import shutil
@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-REAL_DB = ROOT / "factory_maintenance.db"
+REAL_DB = ROOT / "maintainai.db"
 sys.path.insert(0, str(ROOT))
 
 
@@ -26,7 +26,7 @@ def real_db_untouched():
 
 @pytest.fixture
 def temp_db(tmp_path, monkeypatch) -> Path:
-    db = tmp_path / "factory_maintenance.db"
+    db = tmp_path / "maintainai.db"
     shutil.copy(REAL_DB, db)
     monkeypatch.setenv("MAINTAINAI_DB", str(db))  # read by db_utils.db_path() on every query
     return db

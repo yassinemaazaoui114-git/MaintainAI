@@ -1,75 +1,231 @@
 {
+  "target": "failure of any component within 7 days (machine-day rows)",
   "dataset": {
-    "snapshots": 2650,
-    "machines": 50,
-    "weeks": 53,
-    "first_snapshot": "2025-09-11",
-    "last_snapshot": "2026-09-10",
-    "train_machines": 40,
-    "test_machines": 10,
-    "test_rows": 530
+    "rows": 35200,
+    "machines": 100,
+    "first_day": "2015-01-07",
+    "last_day": "2015-12-24",
+    "positive_rate": 0.134,
+    "failures": 761
   },
-  "held_out_machines": {
-    "Mean baseline": {
-      "MAE": 21.89,
-      "RMSE": 27.34,
-      "R2": -0.217
+  "split": {
+    "train": {
+      "rows": 23000,
+      "first_day": "2015-01-07",
+      "last_day": "2015-08-24",
+      "positive_rate": 0.136
     },
-    "Linear regression": {
-      "MAE": 3.53,
-      "RMSE": 4.49,
-      "R2": 0.967
+    "val": {
+      "rows": 6100,
+      "first_day": "2015-09-01",
+      "last_day": "2015-10-31",
+      "positive_rate": 0.125
     },
-    "Random Forest": {
-      "MAE": 4.64,
-      "RMSE": 5.85,
-      "R2": 0.944
+    "train+val": {
+      "rows": 29100,
+      "first_day": "2015-01-07",
+      "last_day": "2015-10-24",
+      "positive_rate": 0.135
+    },
+    "test": {
+      "rows": 5400,
+      "first_day": "2015-11-01",
+      "last_day": "2015-12-24",
+      "positive_rate": 0.126
     }
   },
-  "group_5fold_cv_random_forest": {
-    "MAE": {
-      "mean": 3.888,
-      "std": 0.371
+  "selected": {
+    "model": "Random Forest",
+    "params": {
+      "max_features": 0.33,
+      "min_samples_leaf": 10,
+      "n_estimators": 100
     },
-    "RMSE": {
-      "mean": 4.982,
-      "std": 0.575
+    "selection": "validation PR-AUC"
+  },
+  "results": [
+    {
+      "model": "Baseline (failure rate)",
+      "val_pr_auc": 0.125,
+      "pr_auc": 0.126,
+      "roc_auc": 0.5,
+      "brier": 0.1102,
+      "precision_warning": null,
+      "recall_warning": 0.0,
+      "precision_critical": null,
+      "recall_critical": 0.0
     },
-    "R2": {
-      "mean": 0.937,
-      "std": 0.016
+    {
+      "model": "Logistic regression",
+      "val_pr_auc": 0.293,
+      "pr_auc": 0.293,
+      "roc_auc": 0.689,
+      "brier": 0.1016,
+      "precision_warning": 0.325,
+      "recall_warning": 0.356,
+      "precision_critical": 0.545,
+      "recall_critical": 0.044
+    },
+    {
+      "model": "Random Forest",
+      "val_pr_auc": 0.633,
+      "pr_auc": 0.63,
+      "roc_auc": 0.909,
+      "brier": 0.0715,
+      "precision_warning": 0.386,
+      "recall_warning": 0.822,
+      "precision_critical": 0.743,
+      "recall_critical": 0.331
+    },
+    {
+      "model": "Gradient boosting",
+      "val_pr_auc": 0.614,
+      "pr_auc": 0.628,
+      "roc_auc": 0.913,
+      "brier": 0.0706,
+      "precision_warning": 0.397,
+      "recall_warning": 0.788,
+      "precision_critical": 0.732,
+      "recall_critical": 0.39
+    }
+  ],
+  "thresholds": {
+    "warning": 20,
+    "critical": 50
+  },
+  "threshold_choice": {
+    "critical": "50%: the model thinks a failure in the next 7 days is more likely than not",
+    "warning": "highest multiple of 5 below Critical that still flags 80% of the days before a failure (validation)",
+    "validation": {
+      "warning": {
+        "threshold": 20,
+        "flagged": 1621,
+        "true_alarms": 614,
+        "false_alarms": 1007,
+        "precision": 0.379,
+        "recall": 0.805
+      },
+      "critical": {
+        "threshold": 50,
+        "flagged": 375,
+        "true_alarms": 278,
+        "false_alarms": 97,
+        "precision": 0.741,
+        "recall": 0.364
+      }
     }
   },
-  "random_row_split_random_forest": {
-    "MAE": 3.47,
-    "RMSE": 4.34,
-    "R2": 0.959
+  "test_alerts": {
+    "warning": {
+      "threshold": 20,
+      "flagged": 1449,
+      "true_alarms": 559,
+      "false_alarms": 890,
+      "precision": 0.386,
+      "recall": 0.822
+    },
+    "critical": {
+      "threshold": 50,
+      "flagged": 303,
+      "true_alarms": 225,
+      "false_alarms": 78,
+      "precision": 0.743,
+      "recall": 0.331
+    }
   },
-  "noise_ceiling": {
-    "MAE": 3.32,
-    "RMSE": 4.19,
-    "R2": 0.971
+  "test_failure_events": {
+    "warning": {
+      "events": 111,
+      "caught": 108,
+      "lead_days_median": 7.0,
+      "caught_2plus_days_ahead": 105,
+      "first": "2015-11-02",
+      "last": "2015-12-31"
+    },
+    "critical": {
+      "events": 111,
+      "caught": 100,
+      "lead_days_median": 2.0,
+      "caught_2plus_days_ahead": 93,
+      "first": "2015-11-02",
+      "last": "2015-12-31"
+    }
   },
-  "feature_importance": {
-    "vibration": 0.3786,
-    "operating_hours": 0.3176,
-    "age_years": 0.092,
-    "temperature": 0.0917,
-    "maintenance_frequency": 0.0404,
-    "days_since_maintenance": 0.0311,
-    "total_downtime": 0.0303,
-    "failure_count": 0.0182
+  "calibration": {
+    "validation_ece": 0.022,
+    "max_ece": 0.05,
+    "calibrated": false,
+    "test_brier_raw_train_only": 0.0725,
+    "test_brier_isotonic_train_only": 0.0719,
+    "test_ece": 0.018,
+    "test_reliability": [
+      {
+        "bin": 0,
+        "n": 3237,
+        "predicted": 0.016,
+        "observed": 0.008
+      },
+      {
+        "bin": 1,
+        "n": 714,
+        "predicted": 0.149,
+        "observed": 0.134
+      },
+      {
+        "bin": 2,
+        "n": 570,
+        "predicted": 0.247,
+        "observed": 0.211
+      },
+      {
+        "bin": 3,
+        "n": 394,
+        "predicted": 0.347,
+        "observed": 0.34
+      },
+      {
+        "bin": 4,
+        "n": 182,
+        "predicted": 0.446,
+        "observed": 0.44
+      },
+      {
+        "bin": 5,
+        "n": 94,
+        "predicted": 0.541,
+        "observed": 0.5
+      },
+      {
+        "bin": 6,
+        "n": 68,
+        "predicted": 0.659,
+        "observed": 0.618
+      },
+      {
+        "bin": 7,
+        "n": 88,
+        "predicted": 0.751,
+        "observed": 0.966
+      },
+      {
+        "bin": 8,
+        "n": 49,
+        "predicted": 0.845,
+        "observed": 0.959
+      },
+      {
+        "bin": 9,
+        "n": 4,
+        "predicted": 0.922,
+        "observed": 1.0
+      }
+    ]
   },
-  "proxy_weights": {
-    "failure_count": 0.22,
-    "days_since_maintenance": 0.16,
-    "vibration": 0.16,
-    "temperature": 0.12,
-    "total_downtime": 0.1,
-    "age_years": 0.1,
-    "operating_hours": 0.08,
-    "maintenance_frequency": 0.06
+  "final_model": {
+    "trained_on": "2026-10-28",
+    "rows": 35200,
+    "first_day": "2015-01-07",
+    "last_day": "2015-12-24"
   },
-  "proxy_noise_sd": 4.0,
   "scikit_learn": "1.9.0"
 }

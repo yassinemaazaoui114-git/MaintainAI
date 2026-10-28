@@ -214,43 +214,18 @@ details[open] .arrow::after {{ content: "▲"; }}
     )
 
 
-# ── 3. risk bars ─────────────────────────────────────────────────────────────
-def risk_chart(df: pd.DataFrame, id_col="machine_id", risk_col="risk",
-               warn: int = 45, crit: int = 75) -> str:
-    d = df.sort_values(risk_col, ascending=False)
-    bars = ""
-    for _, r in d.iterrows():
-        risk = float(r[risk_col])
-        _, color = status_of(risk, warn, crit)
-        bars += f"""<div style="display:grid;grid-template-columns:74px minmax(0,1fr) 32px;align-items:center;gap:9px">
-              <span class="num" style="font-size:11px;color:#575b5f">{_e(r[id_col])}</span>
-              <span style="display:block;height:12px;background:rgba(29,31,32,.07);border-right:1px solid {DIVIDER}">
-                <i style="display:block;height:12px;background:{color};width:{risk:.0f}%"></i>
-              </span>
-              <span class="num" style="font-size:11px;font-weight:700;text-align:right">{risk:.0f}</span>
-            </div>"""
-    legend = "".join(
-        f"""<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:9px;height:9px;background:{c};display:block"></i>{l}</span>"""
-        for l, c in (("Normal", GREEN), ("Warning", AMBER), ("Critical", RED))
-    )
-    return _doc(
-        f"""<section class="plate">
-              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-              <div class="hd"><h4>Risk score by machine</h4>
-                <div style="display:flex;gap:12px;font-size:10px;letter-spacing:.1em;text-transform:uppercase">{legend}</div>
-              </div>
-              <div style="padding:12px 14px;display:flex;flex-direction:column;gap:4px">{bars}</div>
-            </section>"""
-    )
-
-
-# ── 4. failures per month ────────────────────────────────────────────────────
-def month_chart(labels: Sequence[str], counts: Sequence[int]) -> str:
+# ── 3. failures per month ────────────────────────────────────────────────────
+def month_chart(labels: Sequence[str], counts: Sequence[int], note: str = "") -> str:
+    """Bar chart that fills its frame: on the dashboard the frame is stretched to the
+    height of the explanation panel beside it (theme_css), so bars are % heights."""
     top = max(counts) if counts and max(counts) else 1
+    # bar heights as flex-grow shares of the free space (no definite height needed);
+    # the spacer keeps the tallest bar at ~85% so its label fits above it
     bars = "".join(
-        f"""<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%">
+        f"""<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <span style="flex:{top / 0.85 - n:.3f} 1 0"></span>
               <span class="num" style="font-size:10px;font-weight:700">{int(n)}</span>
-              <i style="display:block;width:100%;background:{ACCENT};height:{round(n / top * 150)}px"></i>
+              <i style="display:block;width:100%;background:{ACCENT};flex:{n:.3f} 1 0;min-height:0"></i>
             </div>"""
         for n in counts
     )
@@ -258,43 +233,76 @@ def month_chart(labels: Sequence[str], counts: Sequence[int]) -> str:
         f"""<span style="flex:1;text-align:center;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#6b6f73">{_e(m)}</span>"""
         for m in labels
     )
+    foot = f'<div style="font-size:11px;color:#6b6f73;margin-top:8px">{_e(note)}</div>' if note else ""
+    # min-height:100vh = the frame's height, so the plate fills a stretched frame but
+    # still reports its natural height (≥ 175px of bars) when the frame is sized to content
     return _doc(
-        f"""<section class="plate">
+        f"""<section class="plate" style="min-height:100vh;display:flex;flex-direction:column">
               <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
               <div class="hd"><h4>Failures per month</h4><span class="meta">{sum(counts)} total</span></div>
-              <div style="padding:12px 14px">
-                <div style="display:flex;align-items:flex-end;gap:6px;height:175px;border-bottom:1px solid {TEXT}">{bars}</div>
+              <div style="padding:12px 14px;flex:1;display:flex;flex-direction:column">
+                <div style="flex:1;min-height:175px;display:flex;align-items:stretch;gap:6px;border-bottom:1px solid {TEXT}">{bars}</div>
                 <div style="display:flex;gap:6px;margin-top:4px">{ticks}</div>
+                {foot}
               </div>
             </section>"""
     )
 
 
-# ── 5. tables ────────────────────────────────────────────────────────────────
-def health_table(df: pd.DataFrame, warn: int = 45, crit: int = 75,
-                 cols: dict | None = None) -> str:
-    """Sortable machine-health register. Sorting runs client-side in the iframe.
+# ── 4. tables ────────────────────────────────────────────────────────────────
+# rows shown before a table scrolls under its fixed header: the wrapper's max-height is
+# measured from the real header and row heights (they depend on the web fonts)
+_CAP_ROWS_JS = """
+(function () {
+  var wrap = document.querySelector('.rows');
+  if (!wrap) return;
+  var n = +wrap.dataset.rows;
+  function cap() {
+    var head = wrap.querySelector('thead'), rows = wrap.querySelectorAll('tbody tr');
+    if (!head || rows.length <= n) { wrap.style.maxHeight = ''; return; }
+    var h = head.getBoundingClientRect().height;
+    for (var i = 0; i < n; i++) h += rows[i].getBoundingClientRect().height;
+    wrap.style.maxHeight = Math.ceil(h) + 'px';
+  }
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(cap).observe(wrap.querySelector('table'));
+  window.addEventListener('load', cap);
+  cap();
+})();
+"""
 
-    The "drivers" column holds a list of plain-words risk factors per machine.
+_SCROLL_CSS = f"""
+.rows {{ overflow: auto; }}
+.rows th {{ position: sticky; top: 0; z-index: 1; background: {BG}; }}
+.rows td {{ white-space: nowrap; }}
+"""
+
+
+def health_table(df: pd.DataFrame, columns: Sequence[tuple], warn: int, crit: int,
+                 visible_rows: int = 6, id_col: str = "machine_id", risk_col: str = "risk",
+                 drivers_col: str = "drivers") -> str:
+    """Machine-health register, highest risk first. Display only; sorting runs client-side.
+
+    `columns` are the data columns between the machine ID and the risk bar:
+    (header, df column, formatter, right-aligned). Risk, status and the plain-words
+    drivers (a list per machine) always follow.
     """
-    c = {"id": "machine_id", "type": "machine_type", "hours": "operating_hours",
-         "failures": "failures", "downtime": "downtime", "risk": "risk", "drivers": "drivers"}
-    c.update(cols or {})
-
+    d = df.sort_values(risk_col, ascending=False)
     body = ""
-    for _, r in df.iterrows():
-        risk = float(r[c["risk"]])
+    for _, r in d.iterrows():
+        risk = float(r[risk_col])
         label, color = status_of(risk, warn, crit)
-        factors = list(r.get(c["drivers"], None) or [])
-        drivers = (" · ".join(_e(f) for f in factors) if factors
+        factors = list(r.get(drivers_col, None) or [])
+        text = " · ".join(factors)
+        drivers = (f'<span title="{_e(text)}">{_e(text)}</span>' if factors
                    else '<span style="color:#9a9ea2">no strong risk factors</span>')
+        cells = "".join(
+            f'<td class="num{" r" if right else ""}" data-v="{_e(r[col])}">{_e(fmt(r[col]))}</td>'
+            for _, col, fmt, right in columns
+        )
         body += f"""<tr>
-              <td class="num" style="font-weight:700" data-v="{_e(r[c['id']])}">{_e(r[c['id']])}</td>
-              <td style="color:#575b5f" data-v="{_e(r[c['type']])}">{_e(r[c['type']])}</td>
-              <td class="num r" data-v="{float(r[c['hours']]):.0f}">{float(r[c['hours']]):,.0f}</td>
-              <td class="num r" data-v="{float(r[c['failures']]):.0f}">{int(r[c['failures']])}</td>
-              <td class="num r" data-v="{float(r[c['downtime']]):.1f}">{float(r[c['downtime']]):.1f}</td>
-              <td class="r" data-v="{risk:.0f}">
+              <td class="num" style="font-weight:700" data-v="{_e(r[id_col])}">{_e(r[id_col])}</td>
+              {cells}
+              <td class="r" data-v="{risk:.1f}">
                 <span style="display:inline-flex;align-items:center;gap:8px;justify-content:flex-end;width:118px">
                   <span style="flex:1;height:7px;background:rgba(29,31,32,.07)">
                     <i style="display:block;height:7px;background:{color};width:{risk:.0f}%"></i>
@@ -302,20 +310,23 @@ def health_table(df: pd.DataFrame, warn: int = 45, crit: int = 75,
                   <b class="num" style="width:24px;text-align:right">{risk:.0f}</b>
                 </span>
               </td>
-              <td data-v="{risk:.0f}"><span class="pill" style="color:{color}"><i style="background:{color}"></i>{label}</span></td>
+              <td data-v="{risk:.1f}"><span class="pill" style="color:{color}"><i style="background:{color}"></i>{label}</span></td>
               <td class="why">{drivers}</td>
             </tr>"""
 
-    heads = ["Machine", "Type", "Hours", "Failures 12 mo", "Downtime 12 mo (h)", "Risk %", "Status"]
-    aligns = ["", "", "r", "r", "r", "r", ""]
+    heads = ["Machine"] + [h for h, *_ in columns] + ["Risk %", "Status"]
+    aligns = [""] + ["r" if c[3] else "" for c in columns] + ["r", ""]
+    risk_i = len(heads) - 2
     th = "".join(
-        f'<th class="sortable {a}" data-i="{i}">{h}</th>'
+        f'<th class="sortable {a}" data-i="{i}">{h}{" ↓" if i == risk_i else ""}</th>'
         for i, (h, a) in enumerate(zip(heads, aligns))
-    ) + '<th title="Largest SHAP contributions raising this score">Main risk drivers</th>' 
+    ) + '<th title="Largest SHAP contributions raising this score">Main risk drivers</th>'
 
+    # starts sorted by risk, descending (done in Python above); the first click on
+    # Risk % flips it to ascending
     script = """
     (function(){
-      var tb=document.querySelector('tbody'), dir={};
+      var tb=document.querySelector('tbody'), dir={RISK_I:-1};
       document.querySelectorAll('th.sortable').forEach(function(th){
         th.onclick=function(){
           var i=+th.dataset.i, d=dir[i]=(dir[i]===1?-1:1);
@@ -332,23 +343,30 @@ def health_table(df: pd.DataFrame, warn: int = 45, crit: int = 75,
           th.textContent+= d===1?' ↑':' ↓';
         };
       });
-    })();"""
+    })();""".replace("RISK_I", str(risk_i)) + _CAP_ROWS_JS
 
     return _doc(
         f"""<section class="plate">
               <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-              <div class="hd"><h4>Machine health register</h4><span class="meta">Click a header to re-sort</span></div>
-              <div class="scroll"><table><thead><tr>{th}</tr></thead><tbody>{body}</tbody></table></div>
+              <div class="hd"><h4>Machine health register</h4>
+                <span class="meta">{len(d)} machines · highest risk first · click a header to re-sort</span></div>
+              <div class="rows" data-rows="{visible_rows}"><table><thead><tr>{th}</tr></thead><tbody>{body}</tbody></table></div>
             </section>""",
-        extra_css=".why { font-size: 12px; color: #575b5f; min-width: 220px; }",
+        extra_css=_SCROLL_CSS + """
+.why { font-size: 12px; color: #575b5f; max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+""",
         script=script,
     )
 
 
 def data_table(df: pd.DataFrame, title: str, headers: Sequence[str],
                right: Sequence[int] = (), footnote: str = "",
-               chip_cols: Sequence[int] = (), alarm_cols: Sequence[int] = ()) -> str:
-    """Generic Industry-styled table for the maintenance / failure logs."""
+               chip_cols: Sequence[int] = (), alarm_cols: Sequence[int] = (),
+               visible_rows: int | None = None, meta: str | None = None) -> str:
+    """Generic Industry-styled table for the maintenance / failure logs.
+
+    With visible_rows, the body scrolls under a fixed header after that many rows.
+    """
     th = "".join(
         f'<th class="{"r" if i in right else ""}">{_e(h)}</th>'
         for i, h in enumerate(headers)
@@ -372,53 +390,88 @@ def data_table(df: pd.DataFrame, title: str, headers: Sequence[str],
         f'<div class="num" style="padding:7px 12px;border-top:1px solid {DIVIDER};font-size:11px;color:#6b6f73">{_e(footnote)}</div>'
         if footnote else ""
     )
+    wrap = (f'<div class="rows" data-rows="{visible_rows}">' if visible_rows
+            else '<div class="scroll">')
+    meta = meta if meta is not None else f"{len(df)} records"
     return _doc(
         f"""<section class="plate">
               <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-              <div class="hd"><h4>{_e(title)}</h4><span class="meta">{len(df)} records</span></div>
-              <div class="scroll"><table><thead><tr>{th}</tr></thead><tbody>{body}</tbody></table></div>
+              <div class="hd"><h4>{_e(title)}</h4><span class="meta">{_e(meta)}</span></div>
+              {wrap}<table><thead><tr>{th}</tr></thead><tbody>{body}</tbody></table></div>
               {foot}
-            </section>"""
+            </section>""",
+        extra_css=_SCROLL_CSS if visible_rows else "",
+        script=_CAP_ROWS_JS if visible_rows else "",
     )
 
 
 def explain_panel(machine_id: str, risk: float, base: float,
-                  factors: Sequence[tuple[str, float]], warn: int = 45, crit: int = 75) -> str:
+                  factors: Sequence[tuple[str, float]], warn: int, crit: int,
+                  title: str | None = None, show: int = 8) -> str:
     """Why one machine scored what it did: SHAP contributions as diverging bars.
 
-    `factors` is (plain-words label, contribution in score points), any order.
+    `factors` is (plain-words label, contribution in percentage points), any order.
+    The `show` largest are drawn; the rest are summed into one row, so the bars
+    still add up to the score.
     """
     label, color = status_of(risk, warn, crit)
     rows = sorted(factors, key=lambda f: -abs(f[1]))
+    if len(rows) > show:
+        rest = rows[show:]
+        rows = rows[:show] + [(f"{len(rest)} other factors", sum(v for _, v in rest))]
     top = max((abs(v) for _, v in rows), default=1) or 1
     bars = ""
     for text, v in rows:
         w = abs(v) / top * 50
         bar_color = RED if v > 0 else GREEN
         side = f"left:50%;width:{w:.1f}%" if v > 0 else f"right:50%;width:{w:.1f}%"
-        bars += f"""<div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) 52px;align-items:center;gap:10px;height:22px">
-              <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{_e(text)}</span>
+        bars += f"""<div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 52px;align-items:center;gap:10px;height:22px">
+              <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{_e(text)}">{_e(text)}</span>
               <span style="position:relative;display:block;height:12px;background:rgba(29,31,32,.05)">
                 <i style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:{TEXT}"></i>
                 <i style="position:absolute;top:0;height:12px;{side};background:{bar_color}"></i>
               </span>
               <span class="num" style="font-size:12px;font-weight:700;text-align:right;color:{bar_color}">{v:+.1f}</span>
             </div>"""
+    head = title or f"Why {machine_id} scores {risk:.0f}"
     return _doc(
         f"""<section class="plate">
               <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-              <div class="hd"><h4>Why {_e(machine_id)} scores {risk:.0f}</h4>
+              <div class="hd"><h4>{_e(head)}</h4>
                 <span class="pill" style="color:{color}"><i style="background:{color}"></i>{label}</span></div>
               <div style="padding:10px 14px;display:flex;flex-direction:column;gap:2px">
                 <div class="num" style="font-size:11px;color:#6b6f73;margin-bottom:6px">
-                  Fleet average {base:.1f} &nbsp;+&nbsp; contributions below &nbsp;=&nbsp; <b style="color:{TEXT}">{risk:.1f}</b>
+                  Fleet average {base:.1f}% &nbsp;+&nbsp; contributions below &nbsp;=&nbsp; <b style="color:{TEXT}">{risk:.1f}%</b>
+                  chance of a failure in 7 days
                   &nbsp;·&nbsp; <span style="color:{RED}">red raises risk</span>, <span style="color:{GREEN}">green lowers it</span>
                 </div>
                 {bars}
-                <div style="font-size:11px;color:#6b6f73;margin-top:8px">SHAP values (TreeExplainer) for the
-                  Random Forest. They explain what the model learned, which here is a designed proxy formula,
-                  not observed failures.</div>
+                <div style="font-size:11px;color:#6b6f73;margin-top:8px">SHAP values (TreeExplainer), in percentage
+                  points. They show what the model relies on, learned from past failures in the data;
+                  they are not proof of cause.</div>
               </div>
+            </section>"""
+    )
+
+
+def importance_bars(items: Sequence[tuple[str, float]], title: str, meta: str = "") -> str:
+    """Horizontal bars, largest first: (label, value)."""
+    top = max((v for _, v in items), default=1) or 1
+    bars = "".join(
+        f"""<div style="display:grid;grid-template-columns:minmax(0,200px) minmax(0,1fr) 44px;align-items:center;gap:10px;height:22px">
+              <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{_e(label)}</span>
+              <span style="display:block;height:12px;background:rgba(29,31,32,.05)">
+                <i style="display:block;height:12px;background:{ACCENT};width:{v / top * 100:.1f}%"></i>
+              </span>
+              <span class="num" style="font-size:12px;font-weight:700;text-align:right">{v:.1f}</span>
+            </div>"""
+        for label, v in items
+    )
+    return _doc(
+        f"""<section class="plate">
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <div class="hd"><h4>{_e(title)}</h4><span class="meta">{_e(meta)}</span></div>
+              <div style="padding:10px 14px;display:flex;flex-direction:column;gap:2px">{bars}</div>
             </section>"""
     )
 
