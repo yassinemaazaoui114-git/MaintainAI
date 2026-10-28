@@ -2,6 +2,12 @@
 # the custom Industry styling (theme_css.py, ui.py) is designed for a light base
 base = "light"
 
+[theme.sidebar]
+# the same colours theme_css.py forces on the dark sidebar; left unset, Streamlit's
+# front end logs "Invalid color passed for ... theme.sidebar" on every rerun
+primaryColor = "#5980a6"
+textColor = "#f2f2f3"
+
 [client]
 # hide the developer toolbar (Deploy button, rerun menu) for visitors
 toolbarMode = "viewer"
